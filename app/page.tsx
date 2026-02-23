@@ -101,7 +101,7 @@ export default function AdminPage() {
   }, [])
 
   const joinUrl = sessionId
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join?s=${sessionId}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/join?s=${sessionId}`
     : null
 
   return (
