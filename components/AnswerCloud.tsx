@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from 'react'
 import * as d3 from 'd3'
 import { AnswerGroup } from '@/lib/gameLogic'
 
-// Block dimensions: width ∝ text length, height ∝ count
 const MIN_W = 90
 const MAX_W = 240
 const MIN_H = 44
@@ -53,9 +52,11 @@ function collisionR(w: number, h: number) {
 }
 
 export default function AnswerCloud({ groups, revealed, width, height }: Props) {
-  const svgRef   = useRef<SVGSVGElement>(null)
-  const simRef   = useRef<d3.Simulation<NodeDatum, undefined> | null>(null)
-  const nodesRef = useRef<NodeDatum[]>([])
+  const svgRef    = useRef<SVGSVGElement>(null)
+  const simRef    = useRef<d3.Simulation<NodeDatum, undefined> | null>(null)
+  const nodesRef  = useRef<NodeDatum[]>([])
+  const revealRef = useRef(revealed)
+  revealRef.current = revealed
 
   const maxCount = Math.max(1, ...groups.map((g) => g.count))
 
@@ -76,6 +77,7 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
     })
   }, [groups, maxCount, width, height])
 
+  // Build physics simulation (not on reveal — that's handled separately)
   useEffect(() => {
     if (!svgRef.current) return
 
@@ -102,6 +104,7 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
       .join((enter) => {
         const g = enter.append('g').attr('class', 'node blob-enter')
 
+        // Rounded rectangle
         g.append('rect')
           .attr('x', (d) => -d.w / 2)
           .attr('y', (d) => -d.h / 2)
@@ -112,33 +115,39 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
           .attr('fill-opacity', 0.88)
           .style('filter', 'drop-shadow(0 4px 16px rgba(0,0,0,0.45))')
 
-        if (!revealed) {
-          g.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', 'rgba(255,255,255,0.35)')
-            .attr('font-size', '18')
-            .attr('font-weight', '700')
-            .text('?')
-        } else {
-          g.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', '#fff')
-            .attr('font-size', '13')
-            .attr('font-weight', '700')
-            .attr('dy', (d) => d.h > 60 ? '-0.6em' : '0')
-            .text((d) => d.group.display)
+        // Placeholder "?" — always rendered, hidden on reveal
+        g.append('text')
+          .attr('class', 'placeholder')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', 'rgba(255,255,255,0.35)')
+          .attr('font-size', '18')
+          .attr('font-weight', '700')
+          .attr('opacity', revealRef.current ? 0 : 1)
+          .text('?')
 
-          g.filter((d) => d.h > 60)
-            .append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', 'rgba(255,255,255,0.6)')
-            .attr('font-size', '11')
-            .attr('dy', '0.9em')
-            .text((d) => `x${d.group.count}`)
-        }
+        // Answer text — always rendered, shown on reveal
+        g.append('text')
+          .attr('class', 'answer-label')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', '#fff')
+          .attr('font-size', '13')
+          .attr('font-weight', '700')
+          .attr('dy', (d) => d.h > 60 ? '-0.55em' : '0')
+          .attr('opacity', revealRef.current ? 1 : 0)
+          .text((d) => d.group.display)
+
+        // Count badge — shown on reveal when block is tall enough
+        g.append('text')
+          .attr('class', 'count-label')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', 'rgba(255,255,255,0.6)')
+          .attr('font-size', '11')
+          .attr('dy', '0.9em')
+          .attr('opacity', 0)
+          .text((d) => `x${d.group.count}`)
 
         return g
       })
@@ -155,8 +164,9 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
 
     return () => { sim.stop() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups.length, revealed, width, height])
+  }, [groups.length, width, height])
 
+  // Hot-update block sizes when counts change
   useEffect(() => {
     if (!simRef.current || !svgRef.current) return
     const svg = d3.select(svgRef.current)
@@ -177,8 +187,40 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
       .attr('y', (d) => -d.h / 2)
       .attr('width',  (d) => d.w)
       .attr('height', (d) => d.h)
+
+    // Update count text
+    svg.selectAll<SVGTextElement, NodeDatum>('g.node text.count-label')
+      .data(nodes, (d) => d.id)
+      .text((d) => `x${d.group.count}`)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups])
+
+  // Reveal: fade out "?" and fade in answer text — blocks stay in place
+  useEffect(() => {
+    if (!svgRef.current) return
+    const svg = d3.select(svgRef.current)
+
+    if (revealed) {
+      svg.selectAll<SVGTextElement, NodeDatum>('g.node text.placeholder')
+        .transition().duration(300)
+        .attr('opacity', 0)
+
+      svg.selectAll<SVGTextElement, NodeDatum>('g.node text.answer-label')
+        .transition().duration(400).delay(200)
+        .attr('opacity', 1)
+
+      svg.selectAll<SVGTextElement, NodeDatum>('g.node text.count-label')
+        .filter(function() {
+          const parent = this.closest('g.node')
+          if (!parent) return false
+          const rect = parent.querySelector('rect')
+          if (!rect) return false
+          return Number(rect.getAttribute('height') ?? 0) > 60
+        })
+        .transition().duration(400).delay(300)
+        .attr('opacity', 1)
+    }
+  }, [revealed])
 
   return (
     <svg
