@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase, type Session } from '@/lib/supabase'
 
-type Stage = 'loading' | 'name' | 'answer' | 'waiting' | 'revealed' | 'error'
+type Stage = 'loading' | 'answer' | 'waiting' | 'revealed' | 'error'
 
 function JoinGame() {
   const searchParams = useSearchParams()
@@ -13,15 +13,14 @@ function JoinGame() {
 
   const [stage, setStage] = useState<Stage>('loading')
   const [session, setSession] = useState<Session | null>(null)
-  const [name, setName] = useState('')
   const [answer, setAnswer] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Load session
+  // Load session — skip straight to answer, no name step
   useEffect(() => {
     if (!sessionId) {
-      setErrorMsg('No session ID in URL. Ask the admin to share the correct link.')
+      setErrorMsg('No session ID in URL. Ask the host to share the correct link.')
       setStage('error')
       return
     }
@@ -38,18 +37,13 @@ function JoinGame() {
           return
         }
         setSession(data as Session)
-        if (data.status === 'revealed') {
-          setStage('revealed')
-        } else {
-          setStage('name')
-        }
+        setStage(data.status === 'revealed' ? 'revealed' : 'answer')
       })
   }, [sessionId])
 
-  // Subscribe to session status changes (waiting → revealed)
+  // Listen for reveal
   useEffect(() => {
     if (!sessionId) return
-
     const channel = supabase
       .channel(`session-status:${sessionId}`)
       .on(
@@ -62,35 +56,27 @@ function JoinGame() {
         }
       )
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
 
-  const handleNameSubmit = useCallback(() => {
-    if (!name.trim()) return
-    setStage('answer')
-  }, [name])
-
   const handleSubmitAnswer = useCallback(async () => {
-    if (!answer.trim() || !sessionId || !name.trim()) return
+    if (!answer.trim() || !sessionId) return
     setSubmitting(true)
 
     const { error } = await supabase.from('answers').insert({
       session_id: sessionId,
-      participant_name: name.trim(),
+      participant_name: 'Anonymous',
       answer: answer.trim(),
     })
 
     setSubmitting(false)
-
     if (error) {
       setErrorMsg('Could not submit your answer: ' + error.message)
       setStage('error')
       return
     }
-
     setStage('waiting')
-  }, [answer, sessionId, name])
+  }, [answer, sessionId])
 
   return (
     <main
@@ -104,10 +90,11 @@ function JoinGame() {
           <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="flex gap-2">
               {[0, 1, 2].map((i) => (
-                <div
+                <motion.div
                   key={i}
                   className="w-3 h-3 rounded-full bg-violet-400"
-                  style={{ animation: `dotPulse 1.4s ease-in-out ${i * 0.2}s infinite` }}
+                  animate={{ scale: [0.8, 1.3, 0.8], opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.4, delay: i * 0.2, repeat: Infinity }}
                 />
               ))}
             </div>
@@ -128,39 +115,6 @@ function JoinGame() {
           </motion.div>
         )}
 
-        {/* Name entry */}
-        {stage === 'name' && (
-          <motion.div
-            key="name"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            className="w-full max-w-sm flex flex-col gap-6"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xl font-bold">G</div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Join the room</h1>
-              <p className="text-white/40 text-sm mt-1">Enter your name to play</p>
-            </div>
-            <input
-              autoFocus
-              className="w-full border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/25 text-base focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20 transition-all text-center"
-              style={{ background: 'rgba(255,255,255,0.05)' }}
-              placeholder="Your name…"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
-            />
-            <button
-              onClick={handleNameSubmit}
-              disabled={!name.trim()}
-              className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all"
-            >
-              Continue →
-            </button>
-          </motion.div>
-        )}
-
         {/* Answer entry */}
         {stage === 'answer' && session && (
           <motion.div
@@ -171,6 +125,7 @@ function JoinGame() {
             className="w-full max-w-sm flex flex-col gap-6"
           >
             <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xl font-bold">G</div>
               <p className="text-white/30 text-xs tracking-widest uppercase font-semibold mb-2">Question</p>
               <h2 className="text-xl font-bold text-white leading-snug">{session.question}</h2>
             </div>
@@ -206,7 +161,6 @@ function JoinGame() {
             exit={{ opacity: 0, scale: 0.9 }}
             className="text-center flex flex-col items-center gap-6 max-w-xs"
           >
-            {/* Animated rings */}
             <div className="relative w-24 h-24">
               {[0, 1, 2].map((i) => (
                 <motion.div
@@ -226,13 +180,13 @@ function JoinGame() {
               <h2 className="text-xl font-bold text-white">Answer locked!</h2>
               <p className="text-white/40 text-sm mt-1">Waiting for the Great Minds to align…</p>
             </div>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2">
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
                   className="w-2 h-2 rounded-full bg-violet-400"
                   animate={{ scale: [0.8, 1.3, 0.8], opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.4, delay: i * 0.2, repeat: Infinity, ease: 'easeInOut' }}
+                  transition={{ duration: 1.4, delay: i * 0.2, repeat: Infinity }}
                 />
               ))}
             </div>
@@ -256,7 +210,7 @@ function JoinGame() {
               ✨
             </motion.div>
             <h2 className="text-2xl font-bold text-white">Results are in!</h2>
-            <p className="text-white/40 text-sm">Check the main screen to see the winners.</p>
+            <p className="text-white/40 text-sm">Check the main screen to see the ranking.</p>
           </motion.div>
         )}
 

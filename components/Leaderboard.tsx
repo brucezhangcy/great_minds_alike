@@ -16,11 +16,10 @@ export default function Leaderboard({ groups }: Props) {
         Results
       </h3>
       <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-md">
-        {/* Header */}
         <div className="grid grid-cols-12 px-5 py-2 text-xs font-semibold tracking-widest uppercase text-white/30 border-b border-white/10">
-          <span className="col-span-6">Answer</span>
-          <span className="col-span-3 text-center">Count</span>
-          <span className="col-span-3 text-right">Points</span>
+          <span className="col-span-2 text-center">Rank</span>
+          <span className="col-span-7">Answer</span>
+          <span className="col-span-3 text-right">Count</span>
         </div>
 
         <AnimatePresence initial={false}>
@@ -31,31 +30,17 @@ export default function Leaderboard({ groups }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ delay: i * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
-              className={`grid grid-cols-12 px-5 py-3 items-center border-b border-white/5 last:border-0 ${
-                g.isWinner ? 'bg-yellow-400/10' : ''
-              }`}
+              className="grid grid-cols-12 px-5 py-3 items-center border-b border-white/5 last:border-0"
             >
-              <div className="col-span-6 flex items-center gap-2">
-                {g.isWinner && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                    className="text-base"
-                  >
-                    👑
-                  </motion.span>
-                )}
-                <span
-                  className={`font-semibold text-sm truncate ${
-                    g.isWinner ? 'text-yellow-300' : 'text-white/80'
-                  }`}
-                >
+              <div className="col-span-2 text-center">
+                <span className="text-white/30 text-sm font-mono">#{i + 1}</span>
+              </div>
+              <div className="col-span-7">
+                <span className="font-semibold text-sm text-white/80 truncate block">
                   {g.display}
                 </span>
               </div>
-
-              <div className="col-span-3 text-center">
+              <div className="col-span-3 text-right">
                 <motion.span
                   key={g.count}
                   initial={{ scale: 1.4, color: '#a78bfa' }}
@@ -64,21 +49,6 @@ export default function Leaderboard({ groups }: Props) {
                 >
                   {g.count}
                 </motion.span>
-              </div>
-
-              <div className="col-span-3 text-right">
-                {g.points > 0 ? (
-                  <motion.span
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 20, delay: i * 0.06 + 0.3 }}
-                    className="inline-block bg-emerald-500/20 text-emerald-300 text-xs font-bold px-2 py-0.5 rounded-full border border-emerald-500/30"
-                  >
-                    +{g.points}
-                  </motion.span>
-                ) : (
-                  <span className="text-white/20 text-xs">—</span>
-                )}
               </div>
             </motion.div>
           ))}
