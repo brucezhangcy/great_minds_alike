@@ -1,5 +1,7 @@
 # GreatMindsAlike
 
+🌐 **Live at: https://brucezhangcy.github.io/great_minds_alike**
+
 A real-time group alignment game for office meetings. Don't aim for the *correct* answer — aim for what the **majority** will say.
 
 ---
