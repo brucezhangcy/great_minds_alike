@@ -187,23 +187,29 @@ export default function AnswerCloud({ groups, revealed, width, height }: Props) 
     }
   }, [groups, width, height])
 
-  // Reveal: fade "?" out and answer text in — simulation keeps running
+  // Reveal: block fades out, answer word appears in the block's own color
   useEffect(() => {
     if (!svgRef.current || !revealed) return
     const svg = d3.select(svgRef.current)
 
+    // "?" disappears quickly
     svg.selectAll('g.node text.placeholder')
-      .transition().duration(300).attr('opacity', 0)
+      .transition().duration(200)
+      .attr('opacity', 0)
 
-    svg.selectAll('g.node text.answer-label')
-      .transition().duration(400).delay(200).attr('opacity', 1)
+    // Colored block fades away
+    svg.selectAll('g.node rect')
+      .transition().duration(500).delay(100)
+      .attr('fill-opacity', 0)
 
-    svg.selectAll<SVGTextElement, NodeDatum>('g.node text.count-label')
-      .filter(function() {
-        const rect = (this.closest('g.node') as Element)?.querySelector('rect')
-        return Number(rect?.getAttribute('height') ?? 0) > 60
-      })
-      .transition().duration(400).delay(300).attr('opacity', 1)
+    // Answer label: switch to the block's color, re-center, then fade in
+    svg.selectAll<SVGTextElement, NodeDatum>('g.node text.answer-label')
+      .attr('fill', d => d.color)
+      .attr('font-size', '15')
+      .attr('dy', '0')           // center vertically now that there's no count badge
+      .attr('font-weight', '800')
+      .transition().duration(500).delay(300)
+      .attr('opacity', 1)
   }, [revealed])
 
   return (
