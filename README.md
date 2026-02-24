@@ -27,20 +27,8 @@ A real-time group alignment game for office meetings. Don't aim for the *correct
 
 ---
 
-## Scoring
-
-| Result | Points |
-|---|---|
-| Your answer matches the most common answer | **+4 points** |
-| Any other answer | 0 points |
-
-If multiple answers tie for the highest count, all of them award +4 points.
-
----
-
 ## Tips
 
 - Short, specific answers work best — *"Coffee"* beats *"I usually have a coffee in the morning"*
 - Answers are **case-insensitive** — *coffee*, *Coffee*, and *COFFEE* all count as the same
 - The bigger the bubble, the more people said that answer
-- The 👑 crown marks the winning answer after reveal
