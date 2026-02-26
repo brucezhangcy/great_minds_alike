@@ -26,8 +26,10 @@ export const supabase = new Proxy({} as SupabaseClient, {
 
 export type Session = {
   id: string
-  question: string
-  status: 'waiting' | 'active' | 'revealed'
+  question: string                          // legacy compat
+  questions: string[]                       // all pre-set questions
+  current_question_index: number
+  status: 'waiting' | 'active' | 'revealed' | 'finished'
   created_at: string
 }
 
@@ -36,6 +38,7 @@ export type Answer = {
   session_id: string
   participant_name: string
   answer: string
+  question_index: number
   submitted_at: string
 }
 
